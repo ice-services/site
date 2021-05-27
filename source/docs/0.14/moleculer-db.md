@@ -747,6 +747,84 @@ new MongooseAdapter("mongodb://db-server-hostname/my-db", {
 
 If your services are running on separate nodes and you wish to connect to multiple databases then you can use `model` in your service definition. On the other hand, if your services are running on a single node and you wish to connect to multiple databases, you should define the `schema` that will make multiple connections for you.
 
+You can use example below for both cases with minimal changes (TypeScript).
+You can find more detailed explanation at [mongoosejs documentation](https://mongoosejs.com/docs/connections.html#multiple_connections)
+```typescript
+// db/schema.ts
+import mongoose from "mongoose";
+
+export default new mongoose.Schema(
+  {
+    name: { $type: String, required: true },
+    pictures: [String],
+  },
+  {
+    minimize: false,
+    strict: true,
+    timestamps: true,
+    typeKey: "$type",
+    validateBeforeSave: true,
+  },
+)
+  .index({ createdAt: 1 })
+  .index({ name: 1 })
+  .index({ updatedAt: 1 });
+```
+
+```typescript
+// db/model.ts
+import mongoose from "mongoose";
+import schema from "./schema";
+
+const modelName = "User";
+
+export { modelName };
+export default mongoose.model(modelName, schema);
+```
+
+```typescript
+// users.service.ts
+import DbService from "moleculer-db";
+import MongooseDbAdapter from "moleculer-db-adapter-mongoose";
+import { ServiceSchema } from "moleculer";
+import hooks from "./hooks";
+import methods from "./methods";
+import model, { modelName } from "./db/model";
+import schema from "./db/schema";
+
+const connectionString = "mongodb://localhost:27017,localhost:27018,localhost:27019/entities?replicaSet=rs";
+
+export default {
+  adapter: new MongooseDbAdapter(connectionString, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  }),
+
+  hooks,
+  methods,
+  mixins: [DbService],
+  modelName,
+  name: "users",
+  schema,
+
+  settings: {
+    rest: "users",
+  },
+
+  version: 2,
+} as ServiceSchema;
+```
+Now for switch to `model` using you can do simply:
+```typescript
+//...
+  hooks,
+  methods,
+  mixins: [DbService],
+  model,
+  name: "users",
+//...
+```
+
 > More Mongoose examples can be found on [GitHub](https://github.com/moleculerjs/moleculer-db/tree/master/packages/moleculer-db-adapter-mongoose/examples)
 
 ## Sequelize Adapter [![NPM version](https://img.shields.io/npm/v/moleculer-db-adapter-sequelize.svg)](https://www.npmjs.com/package/moleculer-db-adapter-sequelize)
